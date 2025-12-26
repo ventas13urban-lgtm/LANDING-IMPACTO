@@ -1,0 +1,182 @@
+import React, { useState, useMemo } from 'react';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+
+const TEXTURE_URL = "https://raw.githubusercontent.com/ventas13urban-lgtm/impacto-landing-assets/main/fondo%20gris.jpg";
+
+export const ContactCTA: React.FC = () => {
+  const [selectedDate, setSelectedDate] = useState<number | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    project: ''
+  });
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const calendarDays = useMemo(() => {
+    const days = [];
+    const today = new Date();
+    // Empezamos desde mañana
+    today.setDate(today.getDate() + 1);
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      // Solo días laborales
+      if (d.getDay() !== 0 && d.getDay() !== 6) {
+        days.push({
+          dayNum: d.getDate(),
+          dayName: d.toLocaleDateString('es-ES', { weekday: 'short' }).slice(0, 3),
+          fullDate: d
+        });
+      }
+    }
+    return days.slice(0, 8);
+  }, []);
+
+  const baseTimeSlots = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00"];
+
+  const currentSlots = useMemo(() => {
+    if (selectedDate === null) return [];
+    const dayNum = calendarDays[selectedDate].dayNum;
+    return baseTimeSlots.map((time) => {
+      // Simulación de disponibilidad basada en el número de día
+      const hash = dayNum + parseInt(time.replace(':', ''));
+      return { time, available: hash % 3 !== 0 };
+    });
+  }, [selectedDate, calendarDays]);
+
+  const handleSubmit = async () => {
+    if (selectedDate === null || !selectedTime || !formData.email || !formData.project) return;
+    
+    setStatus('loading');
+    
+    // Obtenemos la fecha local exacta sin saltos de zona horaria (UTC)
+    const d = calendarDays[selectedDate].fullDate;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const localDateStr = `${year}-${month}-${day}`;
+    
+    // Preparamos los datos exactamente como se seleccionaron
+    const details: Record<string, string> = {
+      email: formData.email,
+      project: formData.project,
+      date: localDateStr,
+      time: selectedTime, // Enviamos el string exacto (ej: "10:30")
+      fecha_de_envio: new Date().toLocaleString('es-MX'),
+      source: 'Impacto Landing Portfolio'
+    };
+
+    const formBody = Object.keys(details)
+      .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key]))
+      .join('&');
+
+    try {
+      // Envío optimista para ignorar bloqueos de CORS en la respuesta
+      fetch('https://n8n.impacto.uno/webhook/leadimpacto', {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: formBody,
+      });
+
+      // Feedback visual de procesamiento
+      setTimeout(() => {
+        setStatus('success');
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error crítico de envío:', error);
+      setStatus('error');
+    }
+  };
+
+  const isFormValid = selectedDate !== null && selectedTime !== null && formData.email.length > 5 && formData.project.length > 2;
+
+  return (
+    <div id="contact" className="w-full h-full bg-black text-white relative z-10 overflow-hidden flex items-center justify-center m-0 p-0 border-none">
+      <div className="absolute inset-0 z-0">
+        <img src={TEXTURE_URL} alt="Bg" className="w-full h-full object-cover grayscale brightness-[0.3]" />
+        <div className="absolute inset-0 bg-black/60"></div>
+      </div>
+
+      <div className="w-full h-full px-8 flex flex-col items-center justify-center relative z-10">
+        <h2 className="font-sans font-black text-3xl md:text-5xl tracking-tighter mb-8 text-center leading-none uppercase">Asesoría 1 a 1</h2>
+
+        <div className="w-full max-w-sm">
+            {status === 'success' ? (
+              <div className="bg-black/60 border border-white/10 p-8 rounded-sm backdrop-blur-md flex flex-col items-center justify-center text-center">
+                <CheckCircle2 className="w-12 h-12 text-white mb-4" />
+                <h3 className="text-2xl font-black mb-1 uppercase">Recibido.</h3>
+                <p className="font-mono text-xs text-gray-300">Te contactaremos pronto por email.</p>
+              </div>
+            ) : (
+              <div className="bg-black/60 border border-white/10 p-5 rounded-sm backdrop-blur-md">
+                {status === 'error' && (
+                  <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded-sm flex items-center gap-3 text-[10px] font-mono uppercase text-red-200">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>Error de red. Reintenta.</span>
+                  </div>
+                )}
+                
+                <div className="mb-5">
+                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">1. Fecha</span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    {calendarDays.map((day, idx) => (
+                      <button 
+                        key={idx} 
+                        onClick={() => { setSelectedDate(idx); setStatus('idle'); setSelectedTime(null); }} 
+                        className={`p-2 flex flex-col items-center rounded-sm transition-all border ${selectedDate === idx ? 'bg-white border-white text-black' : 'bg-white/5 border-transparent text-gray-400'}`}
+                      >
+                        <span className="text-[8px] uppercase">{day.dayName}</span>
+                        <span className="text-sm font-bold">{day.dayNum}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`mb-5 transition-opacity ${selectedDate !== null ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
+                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">2. Hora</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {currentSlots.map((slot, idx) => (
+                      <button 
+                        key={idx} 
+                        disabled={!slot.available} 
+                        onClick={() => { setSelectedTime(slot.time); setStatus('idle'); }} 
+                        className={`p-1.5 text-[10px] font-mono border rounded-sm transition-all ${!slot.available ? 'border-transparent text-gray-800' : selectedTime === slot.time ? 'bg-white border-white text-black' : 'border-white/10 text-gray-400'}`}
+                      >
+                        {slot.time}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`space-y-3 transition-opacity ${selectedTime ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
+                  <input 
+                    type="email" 
+                    placeholder="Tu Email" 
+                    className="w-full bg-transparent border-b border-white/20 py-2 text-xs focus:outline-none focus:border-white" 
+                    onChange={e => { setFormData({...formData, email: e.target.value}); setStatus('idle'); }} 
+                  />
+                  <input 
+                    type="text" 
+                    placeholder="Tu Proyecto" 
+                    className="w-full bg-transparent border-b border-white/20 py-2 text-xs focus:outline-none focus:border-white" 
+                    onChange={e => { setFormData({...formData, project: e.target.value}); setStatus('idle'); }} 
+                  />
+                  <button 
+                    onClick={handleSubmit} 
+                    disabled={!isFormValid || status === 'loading'} 
+                    className={`w-full py-4 mt-2 font-bold text-[10px] uppercase tracking-[0.2em] transition-all ${isFormValid ? 'bg-white text-black active:scale-95' : 'bg-gray-900 text-gray-700'}`}
+                  >
+                    {status === 'loading' ? 'Procesando...' : 'Confirmar Cita'}
+                  </button>
+                </div>
+              </div>
+            )}
+        </div>
+      </div>
+    </div>
+  );
+};
