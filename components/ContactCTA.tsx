@@ -12,11 +12,10 @@ export const ContactCTA: React.FC = () => {
   });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  // Generar calendario de los próximos 8 días hábiles
   const calendarDays = useMemo(() => {
     const days = [];
     let d = new Date();
-    d.setDate(d.getDate() + 1); // Empezar mañana
+    d.setDate(d.getDate() + 1); 
     
     while (days.length < 8) {
       if (d.getDay() !== 0 && d.getDay() !== 6) {
@@ -39,7 +38,6 @@ export const ContactCTA: React.FC = () => {
     if (selectedDate === null) return [];
     const dayData = calendarDays[selectedDate];
     return baseTimeSlots.map((time) => {
-      // Simulación de disponibilidad sencilla
       const hash = dayData.dayNum + parseInt(time.replace(':', ''));
       return { time, available: hash % 3 !== 0 };
     });
@@ -52,35 +50,45 @@ export const ContactCTA: React.FC = () => {
     
     const dayData = calendarDays[selectedDate];
     
-    // CONSTRUCCIÓN MANUAL DE STRINGS PARA EVITAR SALTOS DE ZONA HORARIA
-    // No usamos .toISOString() porque eso convierte a UTC y resta horas (las 10am se vuelven las 4am)
-    const fechaLimpia = `${dayData.year}-${String(dayData.monthNum).padStart(2, '0')}-${String(dayData.dayNum).padStart(2, '0')}`;
-    const horaLimpia = selectedTime; // "09:00", "10:30", etc.
+    // 1. Construir fecha y hora base
+    const [hrs, mins] = selectedTime.split(':');
+    const fechaBase = `${dayData.year}-${String(dayData.monthNum).padStart(2, '0')}-${String(dayData.dayNum).padStart(2, '0')}`;
     
-    // Este string es el que n8n debe mapear como fecha/hora principal
-    const citaIsoLocal = `${fechaLimpia}T${horaLimpia}:00`; 
-    const resumenHumano = `Cita el ${dayData.displayDate} a las ${horaLimpia} (Hora CDMX)`;
+    // 2. Calcular hora de fin (30 min después)
+    let endHrs = parseInt(hrs);
+    let endMins = parseInt(mins) + 30;
+    if (endMins >= 60) {
+      endHrs += 1;
+      endMins -= 60;
+    }
+    const endStr = `${String(endHrs).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+    // 3. Crear Strings ISO 8601 con OFFSET CDMX (-06:00) explícito
+    // Esto evita que Outlook o n8n asuman UTC.
+    const startTimeISO = `${fechaBase}T${selectedTime}:00-06:00`;
+    const endTimeISO = `${fechaBase}T${endStr}:00-06:00`;
 
     const details: Record<string, string> = {
-      lead_email: formData.email,
-      lead_proyecto: formData.project,
-      cita_fecha_iso: citaIsoLocal,       // Formato: 2024-05-20T10:30:00
-      cita_hora_exacta: horaLimpia,       // Formato: 10:30
-      cita_fecha_formateada: dayData.displayDate,
-      cita_resumen_completo: resumenHumano,
-      lead_zona_horaria: "America/Mexico_City",
-      lead_source: "Portafolio Impacto Web",
-      timestamp_registro: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })
+      email: formData.email,
+      proyecto: formData.project,
+      // ESTOS CAMPOS SON PARA TU NODO DE OUTLOOK EN N8N
+      start_time: startTimeISO, 
+      end_time: endTimeISO,
+      subject: `Asesoría Impacto: ${formData.project}`,
+      body_text: `Cita agendada desde la web para el proyecto: ${formData.project}. Email: ${formData.email}`,
+      // Otros datos auxiliares
+      fecha_humana: dayData.displayDate,
+      hora_humana: `${selectedTime} CDMX`,
+      timestamp_envio: new Date().toISOString()
     };
 
-    console.log("Payload exacto enviado:", details);
+    console.log("Enviando a n8n:", details);
 
     const formBody = Object.keys(details)
       .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key]))
       .join('&');
 
     try {
-      // Envío optimista (no-cors) para procesar el webhook aunque n8n no responda con headers de CORS
       fetch('https://n8n.impacto.uno/webhook/leadimpacto', {
         method: 'POST',
         mode: 'no-cors',
@@ -90,13 +98,12 @@ export const ContactCTA: React.FC = () => {
         body: formBody,
       });
 
-      // Simular éxito inmediato tras el disparo de la petición
       setTimeout(() => {
         setStatus('success');
       }, 1000);
 
     } catch (error) {
-      console.error('Error en el envío:', error);
+      console.error('Error:', error);
       setStatus('error');
     }
   };
@@ -118,8 +125,8 @@ export const ContactCTA: React.FC = () => {
               <div className="bg-black/60 border border-white/10 p-8 rounded-sm backdrop-blur-md flex flex-col items-center justify-center text-center">
                 <CheckCircle2 className="w-12 h-12 text-white mb-4" />
                 <h3 className="text-2xl font-black mb-1 uppercase">Confirmado.</h3>
-                <p className="font-mono text-[10px] text-gray-300 uppercase tracking-widest mt-2">
-                  Cita agendada:<br/>{selectedTime} hrs (CDMX)
+                <p className="font-mono text-[10px] text-gray-300 uppercase tracking-widest mt-2 text-center">
+                  Cita agendada para:<br/>{selectedTime} hrs (CDMX)
                 </p>
               </div>
             ) : (
@@ -148,7 +155,7 @@ export const ContactCTA: React.FC = () => {
                 </div>
 
                 <div className={`mb-5 transition-opacity ${selectedDate !== null ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">2. Selecciona Hora (CDMX)</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">2. Hora (CDMX)</span>
                   <div className="grid grid-cols-3 gap-1.5">
                     {currentSlots.map((slot, idx) => (
                       <button 
