@@ -12,34 +12,35 @@ export const ContactCTA: React.FC = () => {
   });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
+  // Generar calendario de los próximos 8 días hábiles
   const calendarDays = useMemo(() => {
     const days = [];
-    const today = new Date();
-    // Empezamos desde mañana
-    today.setDate(today.getDate() + 1);
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      // Solo días laborales
+    let d = new Date();
+    d.setDate(d.getDate() + 1); // Empezar mañana
+    
+    while (days.length < 8) {
       if (d.getDay() !== 0 && d.getDay() !== 6) {
         days.push({
           dayNum: d.getDate(),
+          monthNum: d.getMonth() + 1,
+          year: d.getFullYear(),
           dayName: d.toLocaleDateString('es-ES', { weekday: 'short' }).slice(0, 3),
-          fullDate: d
+          displayDate: `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`
         });
       }
+      d.setDate(d.getDate() + 1);
     }
-    return days.slice(0, 8);
+    return days;
   }, []);
 
   const baseTimeSlots = ["09:00", "10:30", "12:00", "14:00", "15:30", "17:00"];
 
   const currentSlots = useMemo(() => {
     if (selectedDate === null) return [];
-    const dayNum = calendarDays[selectedDate].dayNum;
+    const dayData = calendarDays[selectedDate];
     return baseTimeSlots.map((time) => {
-      // Simulación de disponibilidad basada en el número de día
-      const hash = dayNum + parseInt(time.replace(':', ''));
+      // Simulación de disponibilidad sencilla
+      const hash = dayData.dayNum + parseInt(time.replace(':', ''));
       return { time, available: hash % 3 !== 0 };
     });
   }, [selectedDate, calendarDays]);
@@ -49,29 +50,37 @@ export const ContactCTA: React.FC = () => {
     
     setStatus('loading');
     
-    // Obtenemos la fecha local exacta sin saltos de zona horaria (UTC)
-    const d = calendarDays[selectedDate].fullDate;
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const localDateStr = `${year}-${month}-${day}`;
+    const dayData = calendarDays[selectedDate];
     
-    // Preparamos los datos exactamente como se seleccionaron
+    // CONSTRUCCIÓN MANUAL DE STRINGS PARA EVITAR SALTOS DE ZONA HORARIA
+    // No usamos .toISOString() porque eso convierte a UTC y resta horas (las 10am se vuelven las 4am)
+    const fechaLimpia = `${dayData.year}-${String(dayData.monthNum).padStart(2, '0')}-${String(dayData.dayNum).padStart(2, '0')}`;
+    const horaLimpia = selectedTime; // "09:00", "10:30", etc.
+    
+    // Este string es el que n8n debe mapear como fecha/hora principal
+    const citaIsoLocal = `${fechaLimpia}T${horaLimpia}:00`; 
+    const resumenHumano = `Cita el ${dayData.displayDate} a las ${horaLimpia} (Hora CDMX)`;
+
     const details: Record<string, string> = {
-      email: formData.email,
-      project: formData.project,
-      date: localDateStr,
-      time: selectedTime, // Enviamos el string exacto (ej: "10:30")
-      fecha_de_envio: new Date().toLocaleString('es-MX'),
-      source: 'Impacto Landing Portfolio'
+      lead_email: formData.email,
+      lead_proyecto: formData.project,
+      cita_fecha_iso: citaIsoLocal,       // Formato: 2024-05-20T10:30:00
+      cita_hora_exacta: horaLimpia,       // Formato: 10:30
+      cita_fecha_formateada: dayData.displayDate,
+      cita_resumen_completo: resumenHumano,
+      lead_zona_horaria: "America/Mexico_City",
+      lead_source: "Portafolio Impacto Web",
+      timestamp_registro: new Date().toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })
     };
+
+    console.log("Payload exacto enviado:", details);
 
     const formBody = Object.keys(details)
       .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key]))
       .join('&');
 
     try {
-      // Envío optimista para ignorar bloqueos de CORS en la respuesta
+      // Envío optimista (no-cors) para procesar el webhook aunque n8n no responda con headers de CORS
       fetch('https://n8n.impacto.uno/webhook/leadimpacto', {
         method: 'POST',
         mode: 'no-cors',
@@ -81,13 +90,13 @@ export const ContactCTA: React.FC = () => {
         body: formBody,
       });
 
-      // Feedback visual de procesamiento
+      // Simular éxito inmediato tras el disparo de la petición
       setTimeout(() => {
         setStatus('success');
       }, 1000);
 
     } catch (error) {
-      console.error('Error crítico de envío:', error);
+      console.error('Error en el envío:', error);
       setStatus('error');
     }
   };
@@ -108,20 +117,22 @@ export const ContactCTA: React.FC = () => {
             {status === 'success' ? (
               <div className="bg-black/60 border border-white/10 p-8 rounded-sm backdrop-blur-md flex flex-col items-center justify-center text-center">
                 <CheckCircle2 className="w-12 h-12 text-white mb-4" />
-                <h3 className="text-2xl font-black mb-1 uppercase">Recibido.</h3>
-                <p className="font-mono text-xs text-gray-300">Te contactaremos pronto por email.</p>
+                <h3 className="text-2xl font-black mb-1 uppercase">Confirmado.</h3>
+                <p className="font-mono text-[10px] text-gray-300 uppercase tracking-widest mt-2">
+                  Cita agendada:<br/>{selectedTime} hrs (CDMX)
+                </p>
               </div>
             ) : (
               <div className="bg-black/60 border border-white/10 p-5 rounded-sm backdrop-blur-md">
                 {status === 'error' && (
                   <div className="mb-4 p-3 bg-red-900/30 border border-red-500/50 rounded-sm flex items-center gap-3 text-[10px] font-mono uppercase text-red-200">
                     <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>Error de red. Reintenta.</span>
+                    <span>Error de conexión.</span>
                   </div>
                 )}
                 
                 <div className="mb-5">
-                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">1. Fecha</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">1. Selecciona Día</span>
                   <div className="grid grid-cols-4 gap-1.5">
                     {calendarDays.map((day, idx) => (
                       <button 
@@ -137,7 +148,7 @@ export const ContactCTA: React.FC = () => {
                 </div>
 
                 <div className={`mb-5 transition-opacity ${selectedDate !== null ? 'opacity-100' : 'opacity-20 pointer-events-none'}`}>
-                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">2. Hora</span>
+                  <span className="block font-mono text-[9px] uppercase tracking-widest mb-3 text-gray-400">2. Selecciona Hora (CDMX)</span>
                   <div className="grid grid-cols-3 gap-1.5">
                     {currentSlots.map((slot, idx) => (
                       <button 
@@ -170,7 +181,7 @@ export const ContactCTA: React.FC = () => {
                     disabled={!isFormValid || status === 'loading'} 
                     className={`w-full py-4 mt-2 font-bold text-[10px] uppercase tracking-[0.2em] transition-all ${isFormValid ? 'bg-white text-black active:scale-95' : 'bg-gray-900 text-gray-700'}`}
                   >
-                    {status === 'loading' ? 'Procesando...' : 'Confirmar Cita'}
+                    {status === 'loading' ? 'Agendando...' : 'Confirmar Cita'}
                   </button>
                 </div>
               </div>
