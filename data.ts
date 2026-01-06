@@ -11,6 +11,7 @@ export const projects: Project[] = [
     service: 'Estrategia Digital · Sistemas de Venta · Dirección de Arte',
     year: '2023 – Presente',
     image: `${GITHUB_BASE}/WEB_TANGASSI4.jpg`,
+    imageAlignment: 'object-bottom',
     gallery: [
       `${GITHUB_BASE}/WEB_TANGASSI2.jpg`,
       `${GITHUB_BASE}/WEB_TANGASSI3.jpg`,

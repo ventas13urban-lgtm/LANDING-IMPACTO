@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useLayoutEffect, useEffect, useRef } from 'react';
 import { X, ArrowRight, ArrowLeft } from 'lucide-react';
 import gsap from 'gsap';
 import { Project } from '../types';
@@ -12,6 +12,14 @@ interface ProjectDetailProps {
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onClose, onNext }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Bloquear scroll del body al montar, desbloquear al desmontar
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, []);
 
   // Manejo de la animación de entrada y salida
   useLayoutEffect(() => {
@@ -134,29 +142,45 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onClose, 
           </div>
         </header>
 
-        {/* Gallery Section */}
+        {/* Gallery Section - Modified for Original Aspect Ratio */}
         <section className="px-4 md:px-8 mt-4">
-          <div className="max-w-[1920px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 auto-rows-[400px] md:auto-rows-[600px]">
+          <div className="max-w-[1920px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 items-start">
              
              {/* Feature Image */}
-             <div className="gallery-img col-span-1 md:col-span-2 lg:col-span-8 row-span-1 relative overflow-hidden group">
-               <img src={project.image} alt="Main" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-               <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+             <div className="gallery-img col-span-1 md:col-span-2 lg:col-span-8 relative overflow-hidden group">
+               <img 
+                src={project.image} 
+                alt="Main" 
+                className="w-full h-auto block transition-transform duration-700 group-hover:scale-[1.01]" 
+               />
+               <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
              </div>
 
              {/* Secondary Image */}
-             <div className="gallery-img col-span-1 md:col-span-1 lg:col-span-4 row-span-1 relative overflow-hidden group">
-                <img src={project.gallery?.[0] || project.image} alt="Detail 1" className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" />
+             <div className="gallery-img col-span-1 md:col-span-1 lg:col-span-4 relative overflow-hidden group">
+                <img 
+                  src={project.gallery?.[0] || project.image} 
+                  alt="Detail 1" 
+                  className="w-full h-auto block grayscale group-hover:grayscale-0 transition-all duration-700" 
+                />
              </div>
 
              {/* Third Image */}
-             <div className="gallery-img col-span-1 md:col-span-1 lg:col-span-4 row-span-1 relative overflow-hidden group">
-                <img src={project.gallery?.[1] || project.image} alt="Detail 2" className="w-full h-full object-cover" />
+             <div className="gallery-img col-span-1 md:col-span-1 lg:col-span-4 relative overflow-hidden group">
+                <img 
+                  src={project.gallery?.[1] || project.image} 
+                  alt="Detail 2" 
+                  className="w-full h-auto block" 
+                />
              </div>
 
               {/* Fourth Image */}
-             <div className="gallery-img col-span-1 md:col-span-2 lg:col-span-8 row-span-1 relative overflow-hidden group">
-                <img src={project.gallery?.[2] || project.image} alt="Detail 3" className="w-full h-full object-cover brightness-75 group-hover:brightness-100 transition-all" />
+             <div className="gallery-img col-span-1 md:col-span-2 lg:col-span-8 relative overflow-hidden group">
+                <img 
+                  src={project.gallery?.[2] || project.image} 
+                  alt="Detail 3" 
+                  className="w-full h-auto block brightness-90 group-hover:brightness-100 transition-all" 
+                />
              </div>
 
           </div>

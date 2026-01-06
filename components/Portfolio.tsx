@@ -96,7 +96,7 @@ export const Portfolio: React.FC<PortfolioProps> = ({ onProjectSelect }) => {
                 <img 
                 src={project.image} 
                 alt={project.title}
-                className="project-image absolute inset-0 w-full h-full object-cover scale-[1.01] brightness-[0.4] will-change-transform transition-all duration-700 ease-out group-hover:scale-[1.03] group-hover:brightness-[0.5]"
+                className={`project-image absolute inset-0 w-full h-full object-cover scale-[1.01] brightness-[0.4] will-change-transform transition-all duration-700 ease-out group-hover:scale-[1.03] group-hover:brightness-[0.5] ${project.imageAlignment || 'object-center'}`}
                 />
             </div>
 
