@@ -25,8 +25,9 @@ export const Hero: React.FC = () => {
           trigger: containerRef.current,
           pin: true,
           start: "top top", 
-          end: "+=150%", 
-          scrub: 2, 
+          end: "+=120%", // Reducido ligeramente para mayor dinamismo
+          scrub: 0.5, // AJUSTE CLAVE: Reducido de 2 a 0.5 para respuesta rápida
+          anticipatePin: 1,
         }
       });
 
@@ -40,8 +41,8 @@ export const Hero: React.FC = () => {
 
       // Animación sutil de escala para la imagen de fondo
       tl.fromTo(".hero-bg-img", 
-        { scale: 1.1 }, 
-        { scale: 1, duration: 1.5, ease: "power2.out" }, 
+        { scale: 1.15 }, 
+        { scale: 1, duration: 1, ease: "power1.out" }, 
         0
       );
 
@@ -105,7 +106,7 @@ export const Hero: React.FC = () => {
       {/* Capa de Revelado (Imagen Retro Elegante) */}
       <div 
         ref={revealContainerRef}
-        className="absolute inset-0 z-10 bg-black overflow-hidden"
+        className="absolute inset-0 z-10 bg-black overflow-hidden will-change-[clip-path]" // OPTIMIZACIÓN: will-change
         style={{ 
           clipPath: 'inset(100% 0% 0% 0%)',
           WebkitClipPath: 'inset(100% 0% 0% 0%)' 
@@ -116,7 +117,7 @@ export const Hero: React.FC = () => {
            <img 
             src={HERO_BG} 
             alt="Retro Communication Background" 
-            className="hero-bg-img w-full h-full object-cover brightness-[0.4] contrast-125"
+            className="hero-bg-img w-full h-full object-cover brightness-[0.4] contrast-125 will-change-transform" // OPTIMIZACIÓN
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40"></div>
         </div>
